@@ -1,5 +1,7 @@
 require 'redis'
 
+class LocalRedisHashError < StandardError; end
+
 class LocalRedisHash
   class << self
     attr_accessor :redis
@@ -18,9 +20,22 @@ class LocalRedisHash
   end
 
   def use key
+    @key = key
     pull key
-    yield self
-    push key
+    if block_given?
+      yield self
+      push key
+    else
+      self
+    end
+  end
+
+  def done
+    if @key
+      push @key
+    else
+      raise LocalRedisHashError, 'Must call #use prior to calling #done'
+    end
   end
 
   private
@@ -33,5 +48,3 @@ class LocalRedisHash
     self.class.redis.mapped_hmset key, @hash
   end
 end
-
-
